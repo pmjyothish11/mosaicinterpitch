@@ -163,6 +163,46 @@
 
   .questions-section.hidden { display: none; }
 
+  /* Per-question notes */
+  .q-notes-area {
+    margin-top: 10px;
+  }
+  .q-notes-toggle {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 0;
+    letter-spacing: 0.5px;
+    transition: color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .q-notes-toggle:hover { color: var(--gold); }
+  .q-notes-toggle.has-note { color: rgba(201,168,76,0.7); }
+  .q-notes-input {
+    width: 100%;
+    margin-top: 8px;
+    padding: 9px 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px;
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    resize: vertical;
+    min-height: 56px;
+    outline: none;
+    transition: border-color 0.2s;
+    display: none;
+  }
+  .q-notes-input.visible { display: block; }
+  .q-notes-input:focus { border-color: rgba(201,168,76,0.4); }
+  .q-notes-input::placeholder { color: rgba(255,255,255,0.2); }
+
   @media (max-width: 600px) {
     .gp-name-row { flex-direction: column; }
     .persona-bar-label { width: 120px; }
@@ -242,11 +282,12 @@ const questions = [
     hint: 'Select all that apply · Tap in order of priority — most worrying first',
     multiRank: true,
     options: [
-      { text: 'Missing something clinical between visits',                          weights: { p1:4, p2:1, p3:1, p4:2, p5:3 } },
-      { text: 'Losing them to corporate hospitals',                                 weights: { p1:1, p2:5, p3:2, p4:1, p5:1 } },
-      { text: 'Families abroad calling in a panic',                                 weights: { p1:2, p2:1, p3:1, p4:5, p5:1 } },
-      { text: 'Not having the time or systems to serve them well',                  weights: { p1:2, p2:2, p3:3, p4:1, p5:4 } },
-      { text: "Revenue pressure — I can't grow this practice on consultations alone", weights: { p1:1, p2:2, p3:5, p4:1, p5:2 } },
+      { text: 'Something serious happening between visits that I don\'t know about',  weights: { p1:5, p2:1, p3:1, p4:2, p5:3 } },
+      { text: 'Being blamed when things deteriorate suddenly',                        weights: { p1:2, p2:4, p3:4, p4:2, p5:2 } },
+      { text: 'Losing control of patient care to hospitals or specialists',           weights: { p1:2, p2:5, p3:2, p4:1, p5:1 } },
+      { text: 'Families calling in a panic when I don\'t have full information',      weights: { p1:2, p2:1, p3:1, p4:5, p5:1 } },
+      { text: 'Not having the time or systems to manage them properly',               weights: { p1:2, p2:2, p3:3, p4:1, p5:4 } },
+      { text: 'Not knowing if my elderly patients are managing until they show up in crisis', weights: { p1:4, p2:2, p3:1, p4:2, p5:3 } },
     ]
   },
   {
@@ -266,10 +307,10 @@ const questions = [
     hint: 'Select all that apply · Tap in order of how true this is for you',
     multiRank: true,
     options: [
-      { text: "I worry about it — I often find out about things too late",          weights: { p1:5, p2:2, p3:1, p4:2, p5:2 } },
-      { text: "They end up in corporate hospitals and I lose visibility",            weights: { p1:1, p2:5, p3:2, p4:1, p5:1 } },
-      { text: "Families manage but they're anxious — especially those abroad",      weights: { p1:2, p2:1, p3:1, p4:5, p5:1 } },
-      { text: "It's a systemic gap — there's no good solution for it yet",          weights: { p1:2, p2:2, p3:2, p4:1, p5:5 } },
+      { text: "I worry something will go wrong and I\'ll only find out too late",               weights: { p1:5, p2:2, p3:1, p4:2, p5:2 } },
+      { text: "Families call me in a panic, but I don\'t have enough information to guide them", weights: { p1:2, p2:1, p3:1, p4:5, p5:1 } },
+      { text: "They end up in hospitals and I lose control of their care",                     weights: { p1:1, p2:5, p3:2, p4:1, p5:1 } },
+      { text: "I do what I can during visits, but there\'s a gap between visits I can\'t bridge", weights: { p1:2, p2:2, p3:2, p4:1, p5:5 } },
     ]
   },
   {
@@ -478,6 +519,31 @@ Many GPs we speak to tell us the same thing — they find out things went wrong 
 I'd like to meet you briefly — 20 minutes — just to understand your practice and share what we're doing with a few GPs in Trivandrum. No paperwork, no commitment. Would you have time this week or early next week?`;
 
 let answers = {};
+let questionNotes = {};
+
+function toggleQNotes(qid) {
+  const input = document.getElementById('notes-input-' + qid);
+  const toggle = document.getElementById('notes-toggle-' + qid);
+  const isVisible = input.classList.contains('visible');
+  if (isVisible) {
+    input.classList.remove('visible');
+    toggle.textContent = questionNotes[qid] ? '✎ note saved' : '+ add note from conversation';
+  } else {
+    input.classList.add('visible');
+    toggle.textContent = '− hide note';
+    input.focus();
+  }
+}
+
+function saveQNote(qid, value) {
+  questionNotes[qid] = value.trim();
+  const toggle = document.getElementById('notes-toggle-' + qid);
+  if (value.trim()) {
+    toggle.classList.add('has-note');
+  } else {
+    toggle.classList.remove('has-note');
+  }
+}
 
 function buildQuestions() {
   const section = document.getElementById('questions-section');
@@ -496,6 +562,12 @@ function buildQuestions() {
       ${hintText ? `<div class="${hintClass}">${hintText}</div>` : ''}
       <div class="options" id="opts-${q.id}"></div>
       ${q.multiRank ? '<div class="multi-hint">Tap again to deselect</div>' : ''}
+      <div class="q-notes-area">
+        <button class="q-notes-toggle" id="notes-toggle-${q.id}" onclick="toggleQNotes('${q.id}')">+ add note from conversation</button>
+        <textarea class="q-notes-input" id="notes-input-${q.id}"
+          placeholder="Capture what they actually said — exact phrases matter…"
+          oninput="saveQNote('${q.id}', this.value)"></textarea>
+      </div>
     `;
     section.appendChild(block);
 
@@ -606,6 +678,9 @@ function showResults() {
 
   document.getElementById('res-name').textContent = gpName;
   document.getElementById('res-location').textContent = gpLoc || '';
+  // Store notes snapshot for export
+  window._gpNotes = { ...questionNotes };
+  window._gpName = gpName;
   document.getElementById('primary-name').textContent = primary.name;
   document.getElementById('primary-desc').textContent = primary.desc;
   document.getElementById('primary-pct').textContent = sorted[0][1] + '%';
@@ -677,6 +752,24 @@ function showResults() {
   objBlock.innerHTML = objHTML;
   ss.appendChild(objBlock);
 
+  // CONVERSATION NOTES
+  const notesWithContent = questions.filter(q => questionNotes[q.id]);
+  if (notesWithContent.length > 0) {
+    const notesBlock = document.createElement('div');
+    notesBlock.className = 'script-block';
+    let notesHTML = `<div class="script-block-label">Notes from the conversation</div>`;
+    notesWithContent.forEach(q => {
+      notesHTML += `
+        <div class="stage-card">
+          <div class="stage-label">${q.text}</div>
+          <div class="stage-script" style="font-style:normal;border-left-color:rgba(201,168,76,0.4);">${questionNotes[q.id]}</div>
+        </div>
+      `;
+    });
+    notesBlock.innerHTML = notesHTML;
+    ss.appendChild(notesBlock);
+  }
+
   // PHONE SCRIPT
   const phoneBlock = document.createElement('div');
   phoneBlock.className = 'phone-block';
@@ -715,6 +808,7 @@ function reset() {
   document.getElementById('progress').style.width = '0%';
   document.getElementById('gp-name').value = '';
   document.getElementById('gp-location').value = '';
+  questionNotes = {};
   buildQuestions();
 }
 
