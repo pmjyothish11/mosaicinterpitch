@@ -160,6 +160,9 @@
 
   .reset-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: var(--soft); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 12px 24px; cursor: pointer; transition: all 0.2s; margin-top: 8px; }
   .reset-btn:hover { border-color: var(--white); color: var(--white); }
+  .action-row { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .download-btn { background: var(--gold); color: var(--dark); border: none; border-radius: 8px; padding: 12px 24px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
+  .download-btn:hover { opacity: 0.88; }
 
   .questions-section.hidden { display: none; }
 
@@ -258,7 +261,10 @@
 
     <div class="script-section" id="script-section"></div>
 
-    <button class="reset-btn" onclick="reset()">← Profile another GP</button>
+    <div class="action-row">
+      <button class="download-btn" onclick="generateWord()">⬇ Download Word Report</button>
+      <button class="reset-btn" onclick="reset()">← Profile another GP</button>
+    </div>
   </div>
 
 </div>
@@ -794,6 +800,130 @@ function showResults() {
       el.style.width = el.dataset.w + '%';
     });
   }, 100);
+}
+
+function generateWord() {
+  const gpName  = window._gpName  || document.getElementById('gp-name').value || 'Unknown GP';
+  const gpLoc   = document.getElementById('gp-location').value || '';
+  const priName = document.getElementById('primary-name').textContent;
+  const priDesc = document.getElementById('primary-desc').textContent;
+  const priPct  = document.getElementById('primary-pct').textContent;
+  const date    = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Collect persona bar scores
+  const bars = [];
+  document.querySelectorAll('.persona-bar-row').forEach(row => {
+    const label = row.querySelector('.persona-bar-label')?.textContent || '';
+    const pct   = row.querySelector('.persona-bar-pct')?.textContent || '';
+    bars.push({ label, pct });
+  });
+
+  // Get primary persona key
+  const primaryKey = Object.keys(personas).find(k => personas[k].name === priName) || 'p1';
+  const script = personaScripts[primaryKey];
+
+  const NAVY = '#1e436c'; const GOLD = '#c9a84c'; const DARK = '#132a44';
+
+  function sec(title) {
+    return `<p style="font-size:9pt;font-weight:bold;color:${GOLD};text-transform:uppercase;letter-spacing:1pt;margin:14pt 0 4pt;font-family:Calibri;">${title}</p>`;
+  }
+  function scriptLine(label, text, note, isGold) {
+    const borderCol = isGold ? GOLD : '#999999';
+    let out = `<p style="font-size:8pt;font-weight:bold;color:#888;text-transform:uppercase;letter-spacing:0.5pt;margin:10pt 0 3pt;font-family:Calibri;">${label}</p>`;
+    out += `<p style="font-size:10.5pt;font-style:italic;color:#222;border-left:3pt solid ${borderCol};padding:6pt 10pt;background:${isGold ? '#fffbf0' : '#f8f8f8'};margin:2pt 0;font-family:Calibri;line-height:1.55;">${text}</p>`;
+    if (note) out += `<p style="font-size:9pt;color:#999;font-style:italic;margin:2pt 0 0 12pt;font-family:Calibri;">${note}</p>`;
+    return out;
+  }
+
+  let body = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head><meta charset="UTF-8">
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 10.5pt; color: #1a1a1a; }
+  p { margin: 0 0 4pt; line-height: 1.45; }
+  @page { margin: 2.2cm; }
+</style>
+</head><body>`;
+
+  // ── HEADER ──
+  body += `<p style="font-family:'Palatino Linotype',serif;font-size:22pt;color:${DARK};margin:0 0 2pt;">LivEzee <span style="color:${GOLD};">Mosaic</span></p>`;
+  body += `<p style="font-size:10pt;color:#888;margin:0 0 10pt;font-family:Calibri;">GP Profile &amp; Pitch Brief</p>`;
+  body += `<p style="border-bottom:3pt solid ${GOLD};margin:0 0 14pt;"></p>`;
+
+  // ── GP DETAILS ──
+  body += `<p style="font-size:14pt;font-weight:bold;color:${DARK};margin:0 0 2pt;font-family:'Palatino Linotype',serif;">${gpName}</p>`;
+  if (gpLoc) body += `<p style="font-size:10pt;color:#888;margin:0 0 2pt;">${gpLoc}</p>`;
+  body += `<p style="font-size:10pt;color:#888;margin:0 0 14pt;">Profiled: ${date}</p>`;
+
+  // ── PRIMARY PERSONA ──
+  body += sec('Primary Persona');
+  body += `<p style="font-size:20pt;font-weight:bold;color:${NAVY};margin:4pt 0 2pt;font-family:'Palatino Linotype',serif;">${priName} <span style="font-size:14pt;color:${GOLD};">${priPct}</span></p>`;
+  body += `<p style="font-size:10pt;color:#444;margin:0 0 10pt;font-style:italic;">${priDesc}</p>`;
+
+  // ── ALL PERSONA SCORES ──
+  body += sec('Persona Breakdown');
+  bars.forEach(b => {
+    body += `<p style="font-size:10pt;color:#333;margin:2pt 0;"><span style="display:inline-block;width:180pt;">${b.label}</span><strong>${b.pct}</strong></p>`;
+  });
+
+  // ── WHO THEY ARE ──
+  body += sec('Who You\u2019re Talking To');
+  body += `<p style="font-size:10.5pt;color:#333;margin:4pt 0 10pt;line-height:1.6;">${script.who}</p>`;
+  body += `<p style="border-bottom:1pt solid #ddd;margin:0 0 12pt;"></p>`;
+
+  // ── CONVERSATION STAGES ──
+  body += sec('The Conversation');
+  script.stages.forEach(stage => {
+    body += scriptLine(stage.label, stage.script, stage.note, stage.highlight);
+  });
+  body += `<p style="border-bottom:1pt solid #ddd;margin:10pt 0 12pt;"></p>`;
+
+  // ── CLOSE ──
+  body += sec('The Close');
+  body += `<p style="font-size:11pt;font-style:italic;color:#222;border-left:4pt solid ${GOLD};padding:8pt 12pt;background:#fffbf0;margin:4pt 0;line-height:1.6;">${script.close}</p>`;
+  body += sec('If They\u2019re Still Hesitant');
+  body += `<p style="font-size:10pt;color:#666;font-style:italic;line-height:1.6;margin:4pt 0 10pt;">${script.exit}</p>`;
+  body += `<p style="border-bottom:1pt solid #ddd;margin:0 0 12pt;"></p>`;
+
+  // ── OBJECTIONS ──
+  body += sec('If They Push Back');
+  script.objections.forEach(obj => {
+    body += `<p style="font-size:9.5pt;color:#888;font-style:italic;margin:8pt 0 3pt;">&ldquo;${obj.q}&rdquo;</p>`;
+    body += `<p style="font-size:10pt;color:#222;border-left:2pt solid ${NAVY};padding:5pt 10pt;background:#f4f6fa;margin:2pt 0 6pt;line-height:1.55;">${obj.a}</p>`;
+  });
+  body += `<p style="border-bottom:1pt solid #ddd;margin:0 0 12pt;"></p>`;
+
+  // ── CONVERSATION NOTES ──
+  const notedQs = questions.filter(q => questionNotes[q.id]);
+  if (notedQs.length > 0) {
+    body += sec('Notes from the Conversation');
+    notedQs.forEach(q => {
+      body += `<p style="font-size:9pt;color:#888;margin:8pt 0 3pt;font-style:italic;">${q.text}</p>`;
+      body += `<p style="font-size:10.5pt;color:#1a1a1a;border-left:2pt solid ${GOLD};padding:5pt 10pt;background:#fffbf0;margin:2pt 0 8pt;line-height:1.55;">${questionNotes[q.id]}</p>`;
+    });
+    body += `<p style="border-bottom:1pt solid #ddd;margin:0 0 12pt;"></p>`;
+  }
+
+  // ── COLD CALL SCRIPT ──
+  body += sec('Cold Call Script');
+  body += `<p style="font-size:9pt;color:#888;margin:0 0 6pt;font-style:italic;">Universal opener — Protector-led register. Use regardless of persona.</p>`;
+  const phoneLines = PHONE_SCRIPT.split('\n\n');
+  phoneLines.forEach(line => {
+    if (line.trim()) body += `<p style="font-size:10.5pt;font-style:italic;color:#222;line-height:1.7;margin:0 0 8pt;">${line.trim()}</p>`;
+  });
+
+  // ── FOOTER ──
+  body += `<p style="border-bottom:2pt solid ${GOLD};margin:16pt 0 8pt;"></p>`;
+  body += `<p style="font-size:8.5pt;color:#aaa;text-align:center;">LivEzee Eldercare Private Limited &middot; Trivandrum, Kerala &middot; <em style="color:${GOLD};">For living with confidence.</em></p>`;
+
+  body += '</body></html>';
+
+  const blob = new Blob(['\uFEFF' + body], { type: 'application/msword;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `LivEzee_Mosaic_${gpName.replace(/[^a-zA-Z0-9]/g, '_')}_${date.replace(/\s+/g, '_')}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function reset() {
